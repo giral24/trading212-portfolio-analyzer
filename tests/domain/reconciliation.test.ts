@@ -11,7 +11,7 @@ import type { ExternalFlow } from '../../src/domain/types';
 
 describe('portfolio reconciliation', () => {
   it('does not count imported buy and sale activity as net contributions', () => {
-    const externalFlows: ExternalFlow[] = [{ occurredAt: new Date('2025-01-01T00:00:00.000Z'), amount: new Decimal('200') }];
+    const externalFlows: ExternalFlow[] = [{ occurredAt: new Date('2025-01-01T00:00:00.000Z'), amount: new Decimal('200'), perspective: 'portfolio' }];
 
     const netContributions = calculateNetContributions(externalFlows);
     const cash = reconcileCash({

@@ -39,6 +39,7 @@ describe('FIFO lot accounting', () => {
     expect(allocations[1]?.quantity.equals('0.25')).toBe(true);
     expect(allocations[1]?.adjustedCost.equals('30')).toBe(true);
     expect(allocations.reduce((total, allocation) => total.plus(allocation.quantity), new Decimal('0')).equals(sale.quantity)).toBe(true);
+    expect(allocations.every((allocation) => allocation.quantity.lessThanOrEqualTo(lots.find((lot) => lot.id === allocation.lotId)?.remainingQuantity ?? new Decimal('0')))).toBe(true);
   });
 
   it('includes buy and sale fees exactly once in realised profit', () => {

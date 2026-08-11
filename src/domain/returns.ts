@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js';
 
-import type { DietzInput, ExternalFlow, TotalInvestmentResultInput, TwrSubperiod } from './types';
+import type { DietzInput, ExternalFlow, InvestorCashFlow, TotalInvestmentResultInput, TwrSubperiod } from './types';
 
 const ZERO = new Decimal('0');
 const ONE = new Decimal('1');
@@ -11,10 +11,10 @@ function sumFlows(flows: ExternalFlow[]): Decimal {
   return flows.reduce((total, flow) => total.plus(flow.amount), ZERO);
 }
 
-function dayDistance(from: Date, to: Date): Decimal | null {
+function dayOffset(from: Date, to: Date): Decimal | null {
   const milliseconds = to.getTime() - from.getTime();
 
-  if (!Number.isFinite(milliseconds) || milliseconds <= 0) {
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) {
     return null;
   }
 
@@ -25,18 +25,31 @@ export function calculateTotalInvestmentResult(input: TotalInvestmentResultInput
   return input.endValue.minus(input.startValue).minus(sumFlows(input.externalFlows));
 }
 
+/**
+ * Reverses the account perspective for investor-return calculations. An
+ * account deposit is an investor outflow; an account withdrawal is an investor
+ * inflow. XIRR accepts only this explicit convention.
+ */
+export function toInvestorCashFlows(externalFlows: ExternalFlow[]): InvestorCashFlow[] {
+  return externalFlows.map((flow) => ({
+    occurredAt: flow.occurredAt,
+    amount: flow.amount.negated(),
+    perspective: 'investor',
+  }));
+}
+
 /** Returns null when period coverage cannot support the approximation. */
 export function calculateModifiedDietz(input: DietzInput): Decimal | null {
-  const periodDays = dayDistance(input.periodStart, input.periodEnd);
+  const periodDays = dayOffset(input.periodStart, input.periodEnd);
 
-  if (periodDays === null) {
+  if (periodDays === null || periodDays.isZero()) {
     return null;
   }
 
   let weightedFlows = ZERO;
 
   for (const flow of input.externalFlows) {
-    const elapsedDays = dayDistance(input.periodStart, flow.occurredAt);
+    const elapsedDays = dayOffset(input.periodStart, flow.occurredAt);
 
     if (elapsedDays === null || elapsedDays.greaterThan(periodDays)) {
       return null;
@@ -85,7 +98,7 @@ export function annualizeReturn(cumulativeReturn: Decimal, periodDays: Decimal):
   return ONE.plus(cumulativeReturn).pow(DAYS_PER_YEAR.div(periodDays)).minus(ONE);
 }
 
-function netPresentValue(rate: Decimal, flows: ExternalFlow[], startDate: Date): Decimal | null {
+function netPresentValue(rate: Decimal, flows: InvestorCashFlow[], startDate: Date): Decimal | null {
   const base = ONE.plus(rate);
 
   if (base.lessThanOrEqualTo(ZERO)) {
@@ -95,15 +108,20 @@ function netPresentValue(rate: Decimal, flows: ExternalFlow[], startDate: Date):
   let result = ZERO;
 
   for (const flow of flows) {
-    const days = dayDistance(startDate, flow.occurredAt);
-    const yearFraction = days === null ? ZERO : days.div(DAYS_PER_YEAR);
+    const days = dayOffset(startDate, flow.occurredAt);
+
+    if (days === null) {
+      return null;
+    }
+
+    const yearFraction = days.div(DAYS_PER_YEAR);
     result = result.plus(flow.amount.div(base.pow(yearFraction)));
   }
 
   return result;
 }
 
-function bisectXirr(lower: Decimal, upper: Decimal, flows: ExternalFlow[], startDate: Date): Decimal | null {
+function bisectXirr(lower: Decimal, upper: Decimal, flows: InvestorCashFlow[], startDate: Date): Decimal | null {
   let low = lower;
   let high = upper;
   let lowValue = netPresentValue(low, flows, startDate);
@@ -159,7 +177,7 @@ function xirrSearchRates(): Decimal[] {
  * Finds one numerically stable annual ACT/365 root. Multiple sign-change
  * brackets are ambiguous and therefore intentionally return null.
  */
-export function calculateXirr(flows: ExternalFlow[]): Decimal | null {
+export function calculateXirr(flows: InvestorCashFlow[]): Decimal | null {
   if (flows.length < 2) {
     return null;
   }

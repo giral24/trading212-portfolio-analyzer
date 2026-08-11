@@ -4,6 +4,14 @@ export type ExternalFlow = {
   occurredAt: Date;
   /** Positive when money enters the portfolio; negative when it leaves. */
   amount: Decimal;
+  perspective: 'portfolio';
+};
+
+export type InvestorCashFlow = {
+  occurredAt: Date;
+  /** Positive when money reaches the investor; negative when the investor contributes it. */
+  amount: Decimal;
+  perspective: 'investor';
 };
 
 export type DietzInput = {
