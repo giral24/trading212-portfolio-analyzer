@@ -4,6 +4,7 @@
 .env.*.local
 !.env.example
 .vercel/
+.worktrees/
 
 # Brokerage exports and other sensitive financial data
 *.csv
