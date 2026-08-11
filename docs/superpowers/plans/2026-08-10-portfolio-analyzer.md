@@ -91,13 +91,14 @@ export function allocateFifoSale(lots: OpenLot[], sale: Sale): DisposalAllocatio
 ## Task 3: Define Postgres schema and safe database access
 
 **Files:**
-- Create: `src/db/schema.ts`, `src/db/index.ts`, `drizzle.config.ts`
+- Create: `src/db/schema.ts`, `src/db/index.ts`, `drizzle.config.ts`, `docker-compose.yml`
 - Create: `tests/integration/schema.test.ts`
 - Generate: `drizzle/0000_initial.sql`
 
 **Interfaces:** `getDb(): DrizzleDatabase` initializes lazily during function execution. Every source table contains source ID/hash, account ID, `createdAt`, `observedAt`, and raw JSON where appropriate.
 
 - [ ] Write a schema test asserting unique `(source, external_id)` raw events and `numeric` types for amount/quantity columns.
+- [ ] Add the local Docker Postgres service now, using a named volume and a port bound to loopback only so the local Node.js process can run migrations and integration tests. Keep credentials and the connection URL only in ignored `.env`.
 - [ ] Define all tables listed in [architecture and data model](../../02-data-and-integration/02-architecture-and-data-model.md), including leases, checkpoints, snapshots, lot allocations, issues, adjustments, and isolated projection scenarios.
 - [ ] Add foreign keys, check constraints for non-negative remaining lot quantity, unique snapshot identities, and indexes for account/date/event retrieval.
 - [ ] Implement a plain lazy `getDb()` factory; do not use a JavaScript Proxy around the DB client.
@@ -208,12 +209,12 @@ export function projectScenario(input: ProjectionScenario): ProjectionResult;
 ## Task 10: Local hardening and future deployment readiness
 
 **Files:**
-- Create: `.github/workflows/ci.yml`, `docs/05-research/observations/README.md`, `docs/04-delivery/release-checklist.md`, `docker-compose.yml`
+- Create: `.github/workflows/ci.yml`, `docs/05-research/observations/README.md`, `docs/04-delivery/release-checklist.md`
 - Modify: `README.md`, `AGENTS.md`
 - Test: complete `pnpm lint`, `pnpm typecheck`, `pnpm test -- --coverage`, `pnpm test:e2e`, `pnpm build`
 
 - [ ] Add CI for lint, typecheck, unit/integration tests, build, and Playwright against fixtures. Require it before merging to `main`.
-- [ ] Add a local Docker Postgres service with a named volume and no exposed database port by default. Keep the connection URL only in ignored `.env`.
+- [ ] Verify the existing local Docker Postgres service has a named volume, loopback-only binding, and no credentials or connection URL committed to Git.
 - [ ] Document a future deployment checklist without configuring any provider, secret, cron, or marketplace integration.
 - [ ] Complete the validation backlog with demo/sanitized data, create documentation observations, run a manual sync, and prove repeated sync is idempotent.
 - [ ] Perform an encrypted local backup/restore rehearsal to an isolated database and validate that account snapshots, raw events, lots, and read models restore consistently.
