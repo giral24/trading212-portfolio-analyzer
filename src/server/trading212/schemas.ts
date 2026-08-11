@@ -16,5 +16,6 @@ export const reportRequestSchema = z.object({
 }).passthrough();
 
 export const reportResponseSchema = z.object({
-  reportId: z.string(),
+  /** The provider documents this as int64; retain it as a string after safe parsing. */
+  reportId: z.number().int().safe().transform((reportId) => String(reportId)),
 }).passthrough();

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import firstPage from '../fixtures/trading212/history-page-one.json';
 import secondPage from '../fixtures/trading212/history-page-two.json';
+import exportResponse from '../fixtures/trading212/export-request-response.json';
 import { Trading212HttpError, createTrading212Client } from '../../src/server/trading212/client';
 
 const baseUrl = 'https://demo.trading212.com/api/v0';
@@ -58,11 +59,12 @@ describe('Trading 212 read-only adapter', () => {
   });
 
   it('allows POST only for requesting an historical export report', async () => {
-    const fetch = vi.fn().mockResolvedValue(response({ reportId: 'sanitized-report' }));
+    const fetch = vi.fn().mockResolvedValue(response(exportResponse));
     const client = createTrading212Client({ baseUrl, apiKey: 'key', apiSecret: 'secret', fetch });
 
-    await client.requestExport({ dataIncluded: {} });
+    const report = await client.requestExport({ dataIncluded: {} });
 
     expect(fetch).toHaveBeenCalledWith(`${baseUrl}/equity/history/exports`, expect.objectContaining({ method: 'POST' }));
+    expect(report.reportId).toBe('42');
   });
 });
