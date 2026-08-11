@@ -39,7 +39,7 @@ release lease in finally
 
 - A lease is stored transactionally with expiry. A second invocation returns `skipped: sync already running`.
 - Initial historical backfill uses an API report/export and/or approved uploaded CSV, then paginated endpoints as a cross-check.
-- Incremental sync begins at the latest complete watermark minus a seven-day overlap. Deduplicate by stable provider ID; otherwise use canonical content hash.
+- A failed paginated stream resumes at its last committed provider cursor. Until a documented, validated time-filter is available for a historical endpoint, a completed stream is re-read from its first page on the next sync; this is deliberately a superset of the planned seven-day overlap and is deduplicated by stable provider ID or canonical content hash.
 - Advance a checkpoint only after the page and all derived writes commit.
 - Record snapshots rather than overwriting current state.
 - Failed jobs are resumable and must not leave partial derived calculations marked complete.
