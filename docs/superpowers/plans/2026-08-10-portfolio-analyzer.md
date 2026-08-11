@@ -4,20 +4,20 @@
 
 **Goal:** Build a private, read-only Trading 212 analysis application that reconciles account data, calculates explainable performance, and keeps projections isolated from observed history.
 
-**Architecture:** A Next.js App Router application on Vercel uses Node.js server functions to ingest allowlisted Trading 212 read endpoints. Neon Postgres preserves immutable source records, snapshots, accounting results, and operational history. Pure TypeScript domain functions calculate classifications, FIFO lots, P&L, TWR/Dietz, XIRR, reconciliation, and projections; UI routes consume typed read models only.
+**Architecture:** A local-only Next.js App Router application uses a Node.js server to ingest allowlisted Trading 212 read endpoints. Local Postgres preserves immutable source records, snapshots, accounting results, and operational history. Pure TypeScript domain functions calculate classifications, FIFO lots, P&L, TWR/Dietz, XIRR, reconciliation, and projections; UI routes consume typed read models only.
 
-**Tech Stack:** Node.js 24, Next.js 16, TypeScript, Tailwind CSS 4, Drizzle ORM, Neon Postgres, Zod, decimal.js, Vitest, Playwright, Clerk, Vercel Cron.
+**Tech Stack:** Node.js 24, Next.js 16, TypeScript, Tailwind CSS 4, Drizzle ORM, local Postgres via Docker, Zod, decimal.js, Vitest, and Playwright. Remote deployment services are deferred.
 
 ## Global Constraints
 
 - Read [the documentation index](../../README.md) and obey all linked decisions before editing code.
-- Use Node.js Functions, never Edge runtime, for database or Trading 212 access.
-- `T212_API_KEY` and `T212_API_SECRET` are server-only sensitive production variables; never ask for or render them in the UI.
+- Use the local Node.js server, never a browser client, for database or Trading 212 access.
+- `T212_API_KEY` and `T212_API_SECRET` are server-only variables in the ignored local `.env`; never ask for or render them in the UI.
 - Implement only Trading 212 GET requests and history export report creation/polling; never add trade, order, or Pie write calls.
 - Persist money and quantities as decimal strings/SQL `numeric`; do not use JavaScript `number` for authoritative calculations.
 - Use UTC timestamps and a configurable account reporting timezone. Return metrics only with declared method, period, currency, and coverage.
 - Default cost policy is FIFO v1. Source facts and manual adjustments are append-only and idempotent.
-- Preview deployments use only sanitized fixtures and a separate database; no live account data or credentials.
+- No remote deployment, preview, hosted database, or remote scheduler is configured in the local-first phase.
 - Actual data and projections remain different routes, tables, labels, and visual tokens.
 
 ---
@@ -36,7 +36,7 @@ src/
 └── styles/                      # Tailwind theme and token definitions
 tests/
 ├── domain/                      # deterministic calculation tests
-├── integration/                 # Neon/adapter/ingestion tests with fixtures
+├── integration/                 # Postgres/adapter/ingestion tests with fixtures
 ├── e2e/                         # protected UI and operational flows
 └── fixtures/trading212/         # sanitized, never real, provider responses
 drizzle/                         # generated SQL migrations
@@ -53,7 +53,7 @@ drizzle/                         # generated SQL migrations
 
 - [ ] Initialise the root package with `pnpm init`, then create the `src/`, `tests/`, and `drizzle/` paths shown above. Preserve the existing `docs/` and `AGENTS.md` files; do not scaffold into a temporary nested application.
 - [ ] Add Next.js App Router, React, TypeScript, Tailwind, and ESLint configuration at the repository root. Add exact runtime scripts: `dev`, `build`, `lint`, `typecheck`, `test`, `test:watch`, `test:e2e`, and `db:generate`.
-- [ ] Add dependencies `decimal.js`, `zod`, `drizzle-orm`, `@neondatabase/serverless`; add dev dependencies `vitest`, `@vitest/coverage-v8`, `playwright`, `drizzle-kit`, and `dotenv-cli`.
+- [ ] Add dependencies `decimal.js`, `zod`, `drizzle-orm`, and `postgres`; add dev dependencies `vitest`, `@vitest/coverage-v8`, `playwright`, `drizzle-kit`, and `dotenv-cli`.
 - [ ] Write the failing environment test:
 
 ```ts
@@ -101,7 +101,7 @@ export function allocateFifoSale(lots: OpenLot[], sale: Sale): DisposalAllocatio
 - [ ] Define all tables listed in [architecture and data model](../../02-data-and-integration/02-architecture-and-data-model.md), including leases, checkpoints, snapshots, lot allocations, issues, adjustments, and isolated projection scenarios.
 - [ ] Add foreign keys, check constraints for non-negative remaining lot quantity, unique snapshot identities, and indexes for account/date/event retrieval.
 - [ ] Implement a plain lazy `getDb()` factory; do not use a JavaScript Proxy around the DB client.
-- [ ] Generate and inspect migration SQL, apply it only to a disposable local/development Neon database, run integration tests, and commit `feat: add auditable portfolio schema`.
+- [ ] Generate and inspect migration SQL, apply it only to a disposable local Docker Postgres database, run integration tests, and commit `feat: add auditable portfolio schema`.
 
 ## Task 4: Build a validated, read-only Trading 212 adapter
 
@@ -134,29 +134,28 @@ export interface Trading212Client {
 - Create: `src/server/import/csv.ts`, `src/server/import/normalize.ts`, `src/server/import/ingest.ts`, `src/server/sync/service.ts`, `src/server/sync/lease.ts`
 - Create: `tests/integration/ingest.test.ts`, `tests/integration/sync.test.ts`
 
-**Interfaces:** `syncAccount(accountId: string, trigger: 'manual' | 'cron'): Promise<SyncResult>`; `ingestPage(input: ProviderPage): Promise<IngestionCounters>`.
+**Interfaces:** `syncAccount(accountId: string, trigger: 'manual'): Promise<SyncResult>`; `ingestPage(input: ProviderPage): Promise<IngestionCounters>`.
 
-- [ ] Write failing integration tests for importing the same page twice, a failed page resume, concurrent manual/cron requests, seven-day overlap deduplication, unknown cash type, and a material reconciliation mismatch.
+- [ ] Write failing integration tests for importing the same page twice, a failed page resume, concurrent manual requests, seven-day overlap deduplication, unknown cash type, and a material reconciliation mismatch.
 - [ ] Implement raw-event upsert by external ID or canonical payload hash, source/CSV import provenance, checkpoint only after transaction commit, and append-only snapshots.
 - [ ] Implement transactional account lease acquisition/expiry/release. If a lease exists, return a safe skipped result rather than running in parallel.
 - [ ] Normalize provider types to the event classes in [events and lots](../../01-financial-domain/02-events-lots-and-edge-cases.md); preserve unknown records and create review issues.
 - [ ] Rebuild affected FIFO lots/read models and persist cash/quantity/NAV reconciliation issues without auto-adjusting them.
 - [ ] Run integration tests against a disposable development database and commit `feat: add idempotent account synchronization`.
 
-## Task 6: Add authentication, protected server routes, and Cron
+## Task 6: Restrict local access and add a manual sync route
 
 **Files:**
-- Create: `src/lib/auth.ts`, `src/app/api/sync/manual/route.ts`, `src/app/api/cron/sync/route.ts`, `src/proxy.ts`
-- Modify: `src/app/layout.tsx`
+- Create: `src/lib/local-access.ts`, `src/app/api/sync/manual/route.ts`
+- Modify: `src/app/layout.tsx`, `next.config.ts`
 - Create: `tests/integration/sync-routes.test.ts`, `tests/e2e/auth.spec.ts`
 
-**Interfaces:** `requireOwner(): Promise<OwnerSession>` and `verifyCronRequest(request: Request): boolean` are the only authentication gateways for sync routes.
+**Interfaces:** `assertLocalRequest(request: Request): void` rejects non-loopback requests. `POST /api/sync/manual` is available only to the local owner.
 
-- [ ] Provision Clerk through Vercel Marketplace before installing its SDK; configure a single `AUTH_ALLOWED_EMAIL` policy and do not create a custom password store.
-- [ ] Write failing route tests: anonymous manual sync gets `401`, non-allowlisted session gets `403`, valid owner triggers sync, bad cron secret gets `401`, valid cron reaches the service, and no route response returns secrets/payloads.
-- [ ] Implement server-side route protection and safe Clerk proxy/middleware configuration. Keep cron authentication separate from user sessions.
-- [ ] Add Vercel Cron configuration for `GET /api/cron/sync`; run daily in production. Confirm route runtime is Node.js and max duration/checkpoint behavior is documented.
-- [ ] Enable Vercel Deployment Protection for previews; configure preview database/fixtures only. Run e2e tests and commit `feat: protect portfolio access and scheduled sync`.
+- [ ] Write failing route tests: a non-loopback request gets `403`, a loopback request triggers sync, a concurrent sync is skipped, and no route response returns secrets or raw payloads.
+- [ ] Implement loopback-only local binding and local request validation. Do not add remote authentication, tunneling, or cron.
+- [ ] Add a documented local command to trigger sync manually; ensure it uses the same lease/idempotency path as the route.
+- [ ] Run e2e tests using the local server and commit `feat: restrict local portfolio access and sync`.
 
 ## Task 7: Deliver dashboard and history read models
 
@@ -186,7 +185,7 @@ export interface Trading212Client {
 - [ ] Implement audit tables with filters/detail links; show original vs normalized fields and rule version without exposing raw secrets.
 - [ ] Implement manual classification/adjustment as an append-only action with reason, actor and reversal; force recalculation/reconciliation afterward.
 - [ ] Implement asset list/detail and sync-status/progress views as specified in [information architecture](../../03-product-and-design/01-information-architecture.md).
-- [ ] Test authenticated workflows and commit `feat: add assets activity and data review workflows`.
+- [ ] Test local-only workflows and commit `feat: add assets activity and data review workflows`.
 
 ## Task 9: Implement projections as a separate bounded domain
 
@@ -206,20 +205,20 @@ export function projectScenario(input: ProjectionScenario): ProjectionResult;
 - [ ] Implement scenario builder, comparison, contribution-vs-growth chart, assumptions panel, persistent Hypothetical badge, table alternative, and explicit non-prediction copy.
 - [ ] Run tests and commit `feat: add isolated investment projection scenarios`.
 
-## Task 10: Production hardening and release validation
+## Task 10: Local hardening and future deployment readiness
 
 **Files:**
-- Create: `.github/workflows/ci.yml`, `docs/05-research/observations/README.md`, `docs/04-delivery/release-checklist.md`
-- Modify: `README.md`, `AGENTS.md`, `vercel.ts`
+- Create: `.github/workflows/ci.yml`, `docs/05-research/observations/README.md`, `docs/04-delivery/release-checklist.md`, `docker-compose.yml`
+- Modify: `README.md`, `AGENTS.md`
 - Test: complete `pnpm lint`, `pnpm typecheck`, `pnpm test -- --coverage`, `pnpm test:e2e`, `pnpm build`
 
 - [ ] Add CI for lint, typecheck, unit/integration tests, build, and Playwright against fixtures. Require it before merging to `main`.
-- [ ] Configure Vercel project + Neon through Marketplace. Set only named sensitive production variables; ensure Preview has no production credentials or data.
-- [ ] Add `vercel.ts` with Node-compatible configuration and the one daily cron route; do not add an Edge runtime.
+- [ ] Add a local Docker Postgres service with a named volume and no exposed database port by default. Keep the connection URL only in ignored `.env`.
+- [ ] Document a future deployment checklist without configuring any provider, secret, cron, or marketplace integration.
 - [ ] Complete the validation backlog with demo/sanitized data, create documentation observations, run a manual sync, and prove repeated sync is idempotent.
-- [ ] Perform a backup/restore rehearsal to an isolated database and validate that account snapshots, raw events, lots, and read models restore consistently.
-- [ ] Test a production deploy using the checklist: owner authentication, denied anonymous routes, cron secret, secret scan, no order endpoint, reconciliation status, data freshness, mobile/accessibility smoke test, and rollback.
-- [ ] Commit `chore: prepare secure production release`.
+- [ ] Perform an encrypted local backup/restore rehearsal to an isolated database and validate that account snapshots, raw events, lots, and read models restore consistently.
+- [ ] Test the local release checklist: loopback binding, secret scan, no order endpoint, reconciliation status, data freshness, mobile/accessibility smoke test, and recovery.
+- [ ] Commit `chore: prepare secure local release`.
 
 ## Final Verification
 

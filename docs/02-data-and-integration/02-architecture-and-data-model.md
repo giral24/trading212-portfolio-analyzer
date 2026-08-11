@@ -6,15 +6,15 @@
 flowchart LR
   U["Authenticated owner"] --> W["Next.js web application"]
   W --> Q["Manual sync command"]
-  C["Vercel Cron"] --> S["Server-side sync service"]
+  C["Manual local sync"] --> S["Local server-side sync service"]
   Q --> S
   S --> T["Trading 212 API\nGET only"]
-  S --> D[("Neon Postgres")]
+  S --> D[("Local Postgres")]
   D --> E["Calculation engine"]
   E --> W
 ```
 
-Next.js runs on Vercel Node.js Functions. GitHub is the private source repository and deployment trigger, not the application runtime. Neon Postgres is the durable system of record. UI routes query calculated views and never call Trading 212 directly.
+Next.js runs locally on a Node.js server. GitHub is a source/documentation repository, not the application runtime. Local Postgres is the durable system of record during this phase. UI routes query calculated views and never call Trading 212 directly.
 
 ## Data-layer boundaries
 
@@ -64,4 +64,4 @@ Use `numeric` for amounts and quantities, `text` for opaque external IDs, `times
 
 ## Database security
 
-The browser never holds `DATABASE_URL`. The application role may perform only runtime DML; a separate migration role owns DDL. Use the Neon pooled SSL URL for server functions. PgBouncer transaction pooling does not support session-state patterns such as `LISTEN`, session advisory locks, or persistent temporary tables. [Neon pooling guidance](https://neon.com/docs/connect/connection-pooling).
+The browser never holds `DATABASE_URL`. The application role may perform only runtime DML; a separate migration role owns DDL. Local development uses a local Postgres connection, normally through Docker. Production pooling and provider-specific connection rules are a deferred deployment decision.

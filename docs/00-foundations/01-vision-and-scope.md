@@ -35,8 +35,10 @@ For any selected period, the user can answer: current value; deposits; withdrawa
 
 | Decision | Rationale |
 |---|---|
-| Vercel hosts the application; GitHub hosts source and CI | A server-side runtime is required to protect credentials and schedule syncs. |
-| Neon Postgres is the system of record | Event history and auditability need relational transactions and constraints. |
+| Local-first execution | No application, database, broker credential, or sync runs on Vercel during the current phase. |
+| Local Postgres is the system of record | Event history and auditability need relational transactions and constraints; run it locally, preferably with Docker. |
 | Trading 212 API is read-only | Analysis must never create an execution risk. |
 | A daily valuation snapshot is captured | It enables trustworthy future period returns even if the broker does not expose historical NAV. |
 | CSV import remains a recovery and validation route | It permits backfill and diagnosis without disclosing credentials. |
+
+Vercel, Neon Marketplace, remote cron, and production authentication are deferred deployment decisions. GitHub may hold public documentation and source code, but never credentials, exports, database dumps, or account data.

@@ -2,7 +2,7 @@
 
 ## Binding decisions
 
-- Use TypeScript, Next.js App Router, Node.js Vercel Functions, Neon Postgres, Drizzle, and a decimal-safe money representation.
+- Use TypeScript, Next.js App Router, a local Node.js server, local Postgres, Drizzle, and a decimal-safe money representation. Deployment infrastructure is intentionally undecided.
 - Store timestamps in UTC, preserve the source timestamp, and make the account reporting timezone configurable.
 - Store original and normalized records; never use JavaScript `number` as the authoritative representation of money or quantity.
 - Use FIFO as the initial lot-matching policy. The policy is versioned and visible in the UI.

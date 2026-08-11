@@ -2,7 +2,7 @@
 
 ## Credential configuration
 
-When the owner supplies credentials later, add only these names as sensitive Vercel Production environment variables:
+When the owner supplies credentials later, add only these names to the local `.env` file:
 
 ```text
 T212_API_KEY
@@ -13,15 +13,15 @@ CRON_SECRET
 AUTH_ALLOWED_EMAIL
 ```
 
-Values are never committed, pasted into a Markdown document, sent to the client, or configured in Preview. Vercel stores environment variables encrypted at rest and supports non-readable sensitive values; restrict Vercel project access to the owner. [Vercel environment variables](https://vercel.com/docs/environment-variables), [sensitive variables](https://vercel.com/docs/environment-variables/sensitive-environment-variables).
+Values are never committed, pasted into a Markdown document, sent to the client, or configured in a public service. `.env` is already ignored by Git; keep the device encrypted and do not copy this file to backups or chat. `.env.example` contains names only and remains safe to publish.
 
-The production onboarding must instruct the owner to create a dedicated Trading 212 read-only key. If it is exposed, revoke it in Trading 212, generate a replacement, update the Vercel secret, deploy, test one read call, then revoke the old key.
+The local onboarding must instruct the owner to create a dedicated Trading 212 read-only key. If it is exposed, revoke it in Trading 212, generate a replacement, update local `.env`, test one local read call, then revoke the old key.
 
-## Authentication of the web application
+## Local access
 
-The production application is private even if its URL is public. Use an identity provider with a single allowlisted email (recommended: Clerk provisioned through Vercel Marketplace) and protect all portfolio, sync, configuration, and export routes. Deployment Protection remains enabled for Preview but is not the only production access control.
+The current application is available only on the local machine. Bind the local server to `127.0.0.1`, do not expose its port on the network, and do not configure a public authentication provider yet. If remote deployment is later approved, add application authentication before exposing any portfolio route.
 
-The web user's session and the cron caller are distinct trust boundaries. Sync actions require the authenticated allowlisted user; cron accepts only its own secret.
+Local browser access and the local sync command remain separate code paths. A future remote cron must have its own secret and must not reuse a browser session.
 
 ## Sync algorithm
 
@@ -48,18 +48,18 @@ Historical rate limits apply per account. Read the current `x-ratelimit-*` heade
 
 ## Scheduling
 
-Provide `POST /api/sync/manual` for the owner and a Vercel Cron-protected `GET /api/cron/sync`. Daily sync is sufficient for v1. The cron route verifies its secret, but idempotency and leases are still required because delivery is not an exactly-once guarantee. [Vercel Cron](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
+Provide a local owner-only manual sync command or route. Do not configure a remote cron. A future scheduler must preserve the same idempotency and lease behavior.
 
-The initial job should run once after market close in the account reporting timezone. Because Cron expressions are UTC and market schedules vary, persist snapshots with their exact timestamp and never call a snapshot a formal close unless confirmed.
+When the owner runs a sync, persist its exact timestamp and never call a snapshot a formal close unless confirmed.
 
-## IP allowlisting decision
+## Deferred IP allowlisting
 
-Trading 212 can restrict keys by IP/CIDR. Default Vercel egress IPs are dynamic. For allowlisting, activate Vercel Static IPs in the production function region and copy every assigned egress IP into Trading 212. This is an optional paid hardening measure; it supplements but cannot replace a read-only key and secret protection. [Vercel fixed IP guidance](https://vercel.com/kb/guide/can-i-get-a-fixed-ip-address).
+Trading 212 can restrict keys by IP/CIDR. Local use may use the current home/office IP only if it is stable enough; this is optional and can interrupt sync after an ISP IP change. Remote egress/IP allowlisting is deferred until deployment is selected.
 
 ## Observability, recovery, and privacy
 
-Store sanitized operational events in `sync_runs`: endpoint, page count, duration, retry count, records created/updated/ignored, watermark, and a safe error code. Do not log authorization, secrets, full CSV content, raw financial payloads, or account IDs outside the encrypted database.
+Store sanitized operational events in `sync_runs`: endpoint, page count, duration, retry count, records created/updated/ignored, watermark, and a safe error code. Do not log authorization, secrets, full CSV content, raw financial payloads, or account IDs outside the local database.
 
-Alert on failed sync, stale data, persistent authentication failure, repeated rate limiting, reconciliation difference, and unclassified events. Keep app-level operational history in Neon because Vercel log retention is not the accounting audit trail.
+Alert locally on failed sync, stale data, persistent authentication failure, repeated rate limiting, reconciliation difference, and unclassified events. Keep app-level operational history in local Postgres because terminal logs are not the accounting audit trail.
 
-Use Neon point-in-time recovery/backups appropriate to the chosen plan and test a restore into an isolated environment before relying on it. Download/export only owner-requested data. Account deletion removes application data and secrets but does not affect the Trading 212 account.
+Use encrypted local backups and test a restore into an isolated local database before relying on it. Download/export only owner-requested data. Account deletion removes local application data and secrets but does not affect the Trading 212 account.

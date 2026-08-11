@@ -15,7 +15,7 @@ Perform these checks with a demo Trading 212 account or a sanitized export. Do n
 9. Record the current rate-limit headers and endpoint limits from responses; make the adapter configurable instead of hardcoding unsupported assumptions.
 10. Compare a complete imported period with Trading 212 summary/statement: cash, position quantity, total value, dividends, fees, and number of events.
 11. Find at least one corporate action, correction, reinvested dividend, or otherwise document an absence; ensure it becomes an explicit review case.
-12. Decide reporting timezone, daily snapshot cutoff, start/end-of-day cash-flow convention, and whether an enabled Vercel Static IP add-on is acceptable for Trading 212 IP allowlisting.
+12. Decide reporting timezone, daily snapshot cutoff, start/end-of-day cash-flow convention, and whether local IP restriction is practical for the current network.
 
 ## Output
 

@@ -12,11 +12,11 @@ Deliver schema, idempotent ingestion, classification, FIFO lots, snapshots, reco
 
 **Exit gate:** seeded scenarios for deposits, withdrawals, partial sales, dividends, fees, reinvestment, and stale/missing data reconcile exactly; repeated imports do not alter results; browser access cannot reach credentials.
 
-## Phase 2 — Private operational application
+## Phase 2 — Private local application
 
-Deliver authentication, secure production configuration, manual sync, safe daily cron, dashboard, history, activity, assets, and data-quality states.
+Deliver local-only configuration, manual sync, dashboard, history, activity, assets, and data-quality states. No remote deployment or scheduler is configured.
 
-**Exit gate:** an allowlisted owner can sync a demo account, inspect an auditable result, resolve an unknown event, and see the same result after a second sync. A preview has no real key or financial data.
+**Exit gate:** the local owner can sync a demo account, inspect an auditable result, resolve an unknown event, and see the same result after a second sync. GitHub has no real key or financial data.
 
 ## Phase 3 — Projections
 
@@ -24,9 +24,9 @@ Deliver an isolated deterministic scenario tool, comparison, assumptions, and ac
 
 **Exit gate:** standard monthly-contribution examples match independently calculated expected values; no historical screen treats scenario output as actual data.
 
-## Phase 4 — Controlled enhancement
+## Phase 4 — Deployment decision and controlled enhancement
 
-Only after the first real account is reconciled: external historical pricing, true backfilled TWR, benchmarks, multiple accounts/brokers, advanced corporate actions, tax export, and probabilistic scenarios.
+Only after the first real account is reconciled: choose hosting/database, then consider external historical pricing, true backfilled TWR, benchmarks, multiple accounts/brokers, advanced corporate actions, tax export, and probabilistic scenarios.
 
 ## Definition of done for every increment
 
