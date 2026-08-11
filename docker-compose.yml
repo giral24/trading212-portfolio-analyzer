@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: portfolio_analyzer
+      POSTGRES_USER: portfolio
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - '127.0.0.1:54329:5432'
+    volumes:
+      - portfolio_analyzer_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U portfolio -d portfolio_analyzer']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  portfolio_analyzer_postgres_data:
