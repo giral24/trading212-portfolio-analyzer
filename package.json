@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "dotenv -e .env -- vitest run tests/integration",
     "test:e2e": "playwright test",
     "db:generate": "dotenv -e .env -- drizzle-kit generate"
   },

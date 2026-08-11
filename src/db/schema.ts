@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -313,6 +314,11 @@ export const manualAdjustments = pgTable('manual_adjustments', {
   createdAt: createdAt(),
   observedAt: observedAt(),
 }, (table) => [
+  foreignKey({
+    columns: [table.reversalOfId],
+    foreignColumns: [table.id],
+    name: 'manual_adjustments_reversal_of_id_fkey',
+  }).onDelete('restrict'),
   index('manual_adjustments_account_created_at_index').on(table.accountId, table.createdAt),
 ]);
 

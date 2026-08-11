@@ -1,0 +1,1 @@
+ALTER TABLE "manual_adjustments" ADD CONSTRAINT "manual_adjustments_reversal_of_id_fkey" FOREIGN KEY ("reversal_of_id") REFERENCES "public"."manual_adjustments"("id") ON DELETE restrict ON UPDATE no action;
