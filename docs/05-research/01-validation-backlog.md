@@ -20,4 +20,3 @@ Perform these checks with a demo Trading 212 account or a sanitized export. Do n
 ## Output
 
 For each item, store only a sanitized fixture and a short field map in a future `docs/05-research/observations/` note. Mark implementation assumptions as confirmed, changed, or unsupported. A failed check blocks only the feature that depends on it; it must never result in guessed accounting values.
-

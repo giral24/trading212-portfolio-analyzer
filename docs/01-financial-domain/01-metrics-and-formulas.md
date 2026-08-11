@@ -109,4 +109,3 @@ Never annualise short periods or returns at/below -100%. The chosen day count is
 - `Cambio de valor` — raw value movement; always states whether it includes flows.
 
 No label may say only “rentabilidad”, “ganancia” or “%” without its method and period.
-

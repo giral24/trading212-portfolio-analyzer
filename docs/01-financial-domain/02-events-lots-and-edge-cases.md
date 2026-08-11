@@ -56,4 +56,3 @@ Reconcile after every sync. Tolerate only documented rounding (default: €0.01 
 ## Explicit exclusions
 
 Long-only Invest/ISA equity analysis is v1. CFDs, margin, short positions, options, crypto, financing charges, and tax calculation need their own accounting model and are not silently accepted as ordinary trades.
-

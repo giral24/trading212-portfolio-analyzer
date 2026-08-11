@@ -63,4 +63,3 @@ Store sanitized operational events in `sync_runs`: endpoint, page count, duratio
 Alert on failed sync, stale data, persistent authentication failure, repeated rate limiting, reconciliation difference, and unclassified events. Keep app-level operational history in Neon because Vercel log retention is not the accounting audit trail.
 
 Use Neon point-in-time recovery/backups appropriate to the chosen plan and test a restore into an isolated environment before relying on it. Download/export only owner-requested data. Account deletion removes application data and secrets but does not affect the Trading 212 account.
-

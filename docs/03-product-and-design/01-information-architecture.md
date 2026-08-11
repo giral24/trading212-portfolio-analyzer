@@ -78,4 +78,3 @@ V1 is deterministic. Monte Carlo, tax modeling, goals, benchmarks, price alerts,
 ## Accessibility requirements
 
 Meet WCAG AA contrast. Provide keyboard navigation, visible focus, 44px touch targets, reduced-motion support, localized currency/date formatting, and chart tables/summaries for assistive technology. Essential methodology is visible or accessible via a clear control, never hover-only.
-

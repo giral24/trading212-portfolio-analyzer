@@ -37,4 +37,3 @@ Only after the first real account is reconciled: external historical pricing, tr
 - Sync is idempotent, observable, and reconciled when it touches provider data.
 - Keyboard, screen-reader, mobile, empty, loading, and failure states are considered for UI work.
 - Documentation and links in [the index](../README.md) remain correct.
-

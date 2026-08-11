@@ -47,4 +47,3 @@ Use only a demo key or sanitized export to record fixtures for each endpoint. Co
 ## Known data limitations
 
 The documented contract provides current summaries/positions plus historical events. It does not document a historic account-NAV series. Therefore true historical TWR cannot be promised before the app begins retaining valuation snapshots. See [financial formulas](../01-financial-domain/01-metrics-and-formulas.md) and the [validation backlog](../05-research/01-validation-backlog.md).
-

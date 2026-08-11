@@ -65,4 +65,3 @@ Use `numeric` for amounts and quantities, `text` for opaque external IDs, `times
 ## Database security
 
 The browser never holds `DATABASE_URL`. The application role may perform only runtime DML; a separate migration role owns DDL. Use the Neon pooled SSL URL for server functions. PgBouncer transaction pooling does not support session-state patterns such as `LISTEN`, session advisory locks, or persistent temporary tables. [Neon pooling guidance](https://neon.com/docs/connect/connection-pooling).
-

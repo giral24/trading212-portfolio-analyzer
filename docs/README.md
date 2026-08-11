@@ -34,4 +34,3 @@ docs/
 - Never add API keys, account exports, account numbers, or personal financial data to this tree.
 - Link to primary sources and date time-sensitive findings.
 - A claim marked **decision** is binding until explicitly superseded. A claim marked **validation** must be tested against a demo or sanitized export before being relied on.
-

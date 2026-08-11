@@ -40,4 +40,3 @@ For any selected period, the user can answer: current value; deposits; withdrawa
 | Trading 212 API is read-only | Analysis must never create an execution risk. |
 | A daily valuation snapshot is captured | It enables trustworthy future period returns even if the broker does not expose historical NAV. |
 | CSV import remains a recovery and validation route | It permits backfill and diagnosis without disclosing credentials. |
-

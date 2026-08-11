@@ -48,4 +48,3 @@ Motion explains state, not market excitement: short opacity/position transitions
 ## Content style
 
 Use precise labels: `Resultado de inversión`, `Aportado neto`, `Rentabilidad de cartera (TWR)`, and `Hipotético`. Avoid “victoria”, “mejor activo”, “señal”, “oportunidad”, or red/green arrows without period and method.
-
