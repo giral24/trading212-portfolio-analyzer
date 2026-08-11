@@ -82,7 +82,7 @@ describe('transactional account synchronization', () => {
         select count(*) from reconciliation_issues where account_id = ${accountId} and issue_type = 'nav_components_mismatch'
       `;
 
-      expect(result).toMatchObject({ status: 'succeeded', created: 2, ignored: 0 });
+      expect(result).toMatchObject({ status: 'partial', created: 2, ignored: 0 });
       expect(lot?.original_quantity).toBe('1.5');
       expect(lot?.remaining_quantity).toBe('1');
       expect(new Decimal(lot?.adjusted_cost ?? '0').equals(new Decimal('10.666666666666666667'))).toBe(true);
@@ -173,7 +173,7 @@ describe('transactional account synchronization', () => {
 
     try {
       expect((await syncAccount(accountId, 'manual', { client: failingClient })).status).toBe('failed');
-      expect((await syncAccount(accountId, 'manual', { client: clientAfterFailure })).status).toBe('succeeded');
+      expect((await syncAccount(accountId, 'manual', { client: clientAfterFailure })).status).toBe('partial');
       const [count] = await client<{ count: string }[]>`select count(*) from raw_events where account_id = ${accountId}`;
       const [checkpoint] = await client<{ cursor: string | null }[]>`
         select cursor from sync_checkpoints where account_id = ${accountId} and stream = 'transactions'
@@ -181,6 +181,56 @@ describe('transactional account synchronization', () => {
 
       expect(count?.count).toBe('2');
       expect(checkpoint?.cursor).toBeNull();
+    } finally {
+      await client.end();
+    }
+  });
+
+  databaseTest('rolls back a snapshot and every position when a later provider position is malformed', async () => {
+    const client = postgres(databaseUrl, { max: 1 });
+    const accountId = await createAccount(client);
+    const atomicityClient: SyncClient = {
+      ...clientFor({ cashValue: '10', investedValue: '20', totalValue: '30', currency: 'EUR' }),
+      getPositions: async () => [
+        { instrumentId: crypto.randomUUID(), ticker: 'VALID', quantity: '1', marketValue: '20' },
+        null,
+      ],
+    };
+
+    try {
+      expect((await syncAccount(accountId, 'manual', { client: atomicityClient })).status).toBe('failed');
+      const [counts] = await client<{ snapshots: string; positions: string; issues: string }[]>`
+        select
+          (select count(*) from account_snapshots where account_id = ${accountId}) as snapshots,
+          (select count(*) from position_snapshots where account_id = ${accountId}) as positions,
+          (select count(*) from reconciliation_issues where account_id = ${accountId}) as issues
+      `;
+      expect(counts).toEqual({ snapshots: '0', positions: '0', issues: '0' });
+    } finally {
+      await client.end();
+    }
+  });
+
+  databaseTest('flags an open lot missing from the broker snapshot and marks the run partial', async () => {
+    const client = postgres(databaseUrl, { max: 1 });
+    const accountId = await createAccount(client);
+    const suffix = crypto.randomUUID();
+    const missingPositionClient = clientFor(
+      { cashValue: '0', investedValue: '10', totalValue: '10', currency: 'EUR' },
+      [{ id: `buy-${suffix}`, type: 'buy', instrumentId: `instrument-${suffix}`, ticker: 'MISSING', quantity: '1', price: '10', currency: 'EUR', occurredAt: '2026-01-01T00:00:00Z' }],
+    );
+
+    try {
+      const result = await syncAccount(accountId, 'manual', { client: missingPositionClient });
+      const [issue] = await client<{ expected_value: string; actual_value: string }[]>`
+        select expected_value, actual_value from reconciliation_issues
+        where account_id = ${accountId} and issue_type = 'position_quantity_mismatch'
+      `;
+      const [run] = await client<{ status: string }[]>`select status from sync_runs where account_id = ${accountId}`;
+
+      expect(issue).toEqual({ expected_value: '1', actual_value: '0' });
+      expect(result.status).toBe('partial');
+      expect(run?.status).toBe('partial');
     } finally {
       await client.end();
     }

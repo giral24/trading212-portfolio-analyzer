@@ -55,6 +55,15 @@ type Summary = {
   raw: Record<string, unknown>;
 };
 
+type ValidatedPosition = {
+  raw: Record<string, unknown>;
+  externalInstrumentId: string | null;
+  quantity: string | null;
+  price: string | null;
+  marketValue: string | null;
+  ticker: string | null;
+};
+
 function asRecord(value: unknown, message: string): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error(message);
   return value as Record<string, unknown>;
@@ -92,6 +101,25 @@ function parseSummary(value: unknown, observedAt: Date): Summary {
   return { cashValue, investedValue, totalValue, currency, observedAt: parsedObservedAt, raw };
 }
 
+/** Validates the complete provider array before any snapshot write begins. */
+function parsePositions(value: unknown): ValidatedPosition[] {
+  if (!Array.isArray(value)) throw new Error('Provider positions must be an array.');
+  return value.map((entry) => {
+    const raw = asRecord(entry, 'Provider position must be an object.');
+    const quantity = firstString(raw, ['quantity', 'currentQuantity']);
+    const price = firstString(raw, ['price', 'currentPrice', 'averagePrice']);
+    const marketValue = firstString(raw, ['marketValue', 'value', 'currentValue']);
+    return {
+      raw,
+      externalInstrumentId: firstString(raw, ['instrumentId', 'instrumentCode', 'isin', 'ticker']),
+      quantity: quantity === null ? null : decimalString(quantity, 'Provider position has an invalid quantity.'),
+      price: price === null ? null : decimalString(price, 'Provider position has an invalid price.'),
+      marketValue: marketValue === null ? null : decimalString(marketValue, 'Provider position has an invalid market value.'),
+      ticker: firstString(raw, ['ticker', 'symbol']),
+    };
+  });
+}
+
 function snapshotHash(accountId: string, summary: Summary): string {
   // Provider payload is sufficient for immutable content; the instant makes a fresh observation append-only.
   return createHash('sha256').update(JSON.stringify({ accountId, raw: summary.raw, observedAt: summary.observedAt.toISOString() })).digest('hex');
@@ -105,62 +133,60 @@ async function persistSnapshot(
   positionsValue: unknown,
   observedAt: Date,
 ): Promise<void> {
-  const [snapshot] = await db.insert(accountSnapshots).values({
-    accountId,
-    syncRunId,
-    source: 'trading212:summary',
-    sourceHash: snapshotHash(accountId, summary),
-    cashValue: summary.cashValue,
-    investedValue: summary.investedValue,
-    totalValue: summary.totalValue,
-    accountCurrency: summary.currency,
-    observedAt: summary.observedAt,
-    rawPayload: summary.raw,
-  }).onConflictDoNothing().returning({ id: accountSnapshots.id });
-  if (snapshot === undefined) return;
-
-  if (!Array.isArray(positionsValue)) throw new Error('Provider positions must be an array.');
-  for (const value of positionsValue) {
-    const raw = asRecord(value, 'Provider position must be an object.');
-    const externalInstrumentId = firstString(raw, ['instrumentId', 'instrumentCode', 'isin', 'ticker']);
-    const quantity = firstString(raw, ['quantity', 'currentQuantity']);
-    if (externalInstrumentId === null || quantity === null) {
-      await db.insert(reconciliationIssues).values({
-        accountId,
-        syncRunId,
-        issueType: 'position_without_identity',
-        severity: 'warning',
-        status: 'open',
-        evidence: { raw },
-        observedAt,
-      });
-      continue;
-    }
-    const provider = 'trading212';
-    await db.insert(instruments).values({ provider, externalInstrumentId, ticker: firstString(raw, ['ticker', 'symbol']) ?? externalInstrumentId }).onConflictDoNothing();
-    const [instrument] = await db.select({ id: instruments.id }).from(instruments)
-      .where(and(eq(instruments.provider, provider), eq(instruments.externalInstrumentId, externalInstrumentId))).limit(1);
-    if (instrument === undefined) throw new Error('Could not resolve provider instrument.');
-    const price = firstString(raw, ['price', 'currentPrice', 'averagePrice']);
-    const marketValue = firstString(raw, ['marketValue', 'value', 'currentValue']);
-    const sourceHash = createHash('sha256').update(JSON.stringify({ accountId, raw, observedAt: summary.observedAt.toISOString() })).digest('hex');
-    await db.insert(positionSnapshots).values({
+  const positions = parsePositions(positionsValue);
+  await db.transaction(async (tx) => {
+    const transaction = tx as DrizzleDatabase;
+    const [snapshot] = await transaction.insert(accountSnapshots).values({
       accountId,
-      instrumentId: instrument.id,
-      accountSnapshotId: snapshot.id,
-      source: 'trading212:positions',
-      sourceHash,
-      quantity: decimalString(quantity, 'Provider position has an invalid quantity.'),
-      price: price === null ? null : decimalString(price, 'Provider position has an invalid price.'),
-      marketValue: marketValue === null ? null : decimalString(marketValue, 'Provider position has an invalid market value.'),
+      syncRunId,
+      source: 'trading212:summary',
+      sourceHash: snapshotHash(accountId, summary),
+      cashValue: summary.cashValue,
+      investedValue: summary.investedValue,
+      totalValue: summary.totalValue,
       accountCurrency: summary.currency,
-      observedAt,
-      rawPayload: raw,
-    }).onConflictDoNothing();
-  }
+      observedAt: summary.observedAt,
+      rawPayload: summary.raw,
+    }).onConflictDoNothing().returning({ id: accountSnapshots.id });
+    if (snapshot === undefined) return;
+
+    for (const position of positions) {
+      if (position.externalInstrumentId === null || position.quantity === null) {
+        await transaction.insert(reconciliationIssues).values({
+          accountId,
+          syncRunId,
+          issueType: 'position_without_identity',
+          severity: 'warning',
+          status: 'open',
+          evidence: { raw: position.raw },
+          observedAt,
+        });
+        continue;
+      }
+      const provider = 'trading212';
+      await transaction.insert(instruments).values({ provider, externalInstrumentId: position.externalInstrumentId, ticker: position.ticker ?? position.externalInstrumentId }).onConflictDoNothing();
+      const [instrument] = await transaction.select({ id: instruments.id }).from(instruments)
+        .where(and(eq(instruments.provider, provider), eq(instruments.externalInstrumentId, position.externalInstrumentId))).limit(1);
+      if (instrument === undefined) throw new Error('Could not resolve provider instrument.');
+      const sourceHash = createHash('sha256').update(JSON.stringify({ accountId, raw: position.raw, observedAt: summary.observedAt.toISOString() })).digest('hex');
+      await transaction.insert(positionSnapshots).values({
+        accountId,
+        instrumentId: instrument.id,
+        accountSnapshotId: snapshot.id,
+        source: 'trading212:positions',
+        sourceHash,
+        quantity: position.quantity,
+        price: position.price,
+        marketValue: position.marketValue,
+        accountCurrency: summary.currency,
+        observedAt,
+        rawPayload: position.raw,
+      }).onConflictDoNothing();
+    }
+  });
 }
 
-async function rebuildLots(db: DrizzleDatabase, accountId: string, observedAt: Date, currency: string): Promise<void> {
+async function rebuildLots(db: DrizzleDatabase, accountId: string, syncRunId: string, observedAt: Date, currency: string): Promise<void> {
   const existingLots = await db.select({ id: lots.id }).from(lots).where(eq(lots.accountId, accountId));
   if (existingLots.length > 0) {
     await db.delete(lotDisposals).where(inArray(lotDisposals.lotId, existingLots.map((lot) => lot.id)));
@@ -187,6 +213,7 @@ async function rebuildLots(db: DrizzleDatabase, accountId: string, observedAt: D
     if (quantity.lessThanOrEqualTo(0)) {
       await db.insert(reconciliationIssues).values({
         accountId,
+        syncRunId,
         issueType: 'invalid_order_quantity',
         severity: 'error',
         status: 'open',
@@ -239,6 +266,7 @@ async function rebuildLots(db: DrizzleDatabase, accountId: string, observedAt: D
     } catch (error) {
       await db.insert(reconciliationIssues).values({
         accountId,
+        syncRunId,
         issueType: 'quantity_mismatch',
         severity: 'error',
         status: 'open',
@@ -330,11 +358,20 @@ async function reconcileAccount(db: DrizzleDatabase, accountId: string, syncRunI
   const brokerPositions = await db.select({ instrumentId: positionSnapshots.instrumentId, quantity: positionSnapshots.quantity })
     .from(positionSnapshots)
     .where(eq(positionSnapshots.accountSnapshotId, latestSnapshot.id));
+  const openLots = await db.select({ instrumentId: lots.instrumentId, quantity: lots.remainingQuantity })
+    .from(lots).where(eq(lots.accountId, accountId));
+  const expectedByInstrument = new Map<string, Decimal>();
+  const actualByInstrument = new Map<string, Decimal>();
+  for (const lot of openLots) {
+    expectedByInstrument.set(lot.instrumentId, (expectedByInstrument.get(lot.instrumentId) ?? new Decimal(0)).plus(lot.quantity));
+  }
   for (const position of brokerPositions) {
-    const openLots = await db.select({ quantity: lots.remainingQuantity }).from(lots)
-      .where(and(eq(lots.accountId, accountId), eq(lots.instrumentId, position.instrumentId)));
-    const expected = openLots.reduce((total, lot) => total.plus(lot.quantity), new Decimal(0));
-    const actual = new Decimal(position.quantity);
+    actualByInstrument.set(position.instrumentId, (actualByInstrument.get(position.instrumentId) ?? new Decimal(0)).plus(position.quantity));
+  }
+  const instrumentIds = new Set([...expectedByInstrument.keys(), ...actualByInstrument.keys()]);
+  for (const instrumentId of instrumentIds) {
+    const expected = expectedByInstrument.get(instrumentId) ?? new Decimal(0);
+    const actual = actualByInstrument.get(instrumentId) ?? new Decimal(0);
     const difference = actual.minus(expected);
     if (difference.abs().lessThanOrEqualTo(new Decimal('0.00000001'))) continue;
     await db.insert(reconciliationIssues).values({
@@ -346,7 +383,7 @@ async function reconcileAccount(db: DrizzleDatabase, accountId: string, syncRunI
       actualValue: actual.toFixed(),
       difference: difference.toFixed(),
       status: 'open',
-      evidence: { snapshotId: latestSnapshot.id, instrumentId: position.instrumentId },
+      evidence: { snapshotId: latestSnapshot.id, instrumentId },
       observedAt: summary.observedAt,
     });
   }
@@ -422,19 +459,24 @@ export async function syncAccount(accountId: string, trigger: 'manual', options:
       unknown: total.unknown + current.unknown,
       pageCount: total.pageCount + current.pageCount,
     }), { created: 0, ignored: 0, unknown: 0, pageCount: 0 });
-    await db.transaction(async (tx) => {
-      await rebuildLots(tx as DrizzleDatabase, accountId, observedAt, summary.currency);
+    const hasAccountingErrors = await db.transaction(async (tx) => {
+      await rebuildLots(tx as DrizzleDatabase, accountId, run.id, observedAt, summary.currency);
       await reconcileAccount(tx as DrizzleDatabase, accountId, run.id, summary);
+      const [errorIssue] = await tx.select({ id: reconciliationIssues.id }).from(reconciliationIssues)
+        .where(and(eq(reconciliationIssues.accountId, accountId), eq(reconciliationIssues.syncRunId, run.id), eq(reconciliationIssues.severity, 'error')))
+        .limit(1);
+      const status = counters.unknown > 0 || errorIssue !== undefined ? 'partial' : 'succeeded';
       await tx.update(syncRuns).set({
-        status: counters.unknown > 0 ? 'partial' : 'succeeded',
+        status,
         completedAt: now(),
         pageCount: counters.pageCount,
         createdCount: counters.created,
         ignoredCount: counters.ignored,
         watermark: observedAt,
       }).where(eq(syncRuns.id, run.id));
+      return errorIssue !== undefined;
     });
-    return { status: counters.unknown > 0 ? 'partial' : 'succeeded', trigger, ...counters };
+    return { status: counters.unknown > 0 || hasAccountingErrors ? 'partial' : 'succeeded', trigger, ...counters };
   } catch (error) {
     const safeErrorCode = error instanceof Error && /Provider (summary|positions|history page)/.test(error.message)
       ? 'provider_response_invalid'
