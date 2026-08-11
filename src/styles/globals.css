@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+:root {
+  --surface-base: #090a0c;
+  --surface-raised: #111318;
+  --surface-hover: #171a20;
+  --line-subtle: #2b3038;
+  --text-primary: #f3f5f7;
+  --text-secondary: #aab1ba;
+  --text-muted: #737b86;
+  --silver: #ccd2d9;
+  --positive: #72b99b;
+  --negative: #d87b78;
+  --warning: #d5a85a;
+  --info: #7da4c8;
+  --projection: #9b8dcc;
+}
+
+@theme inline {
+  --color-surface-base: var(--surface-base);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-hover: var(--surface-hover);
+  --color-line-subtle: var(--line-subtle);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-silver: var(--silver);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-projection: var(--projection);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--surface-base);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.app-header,
+.shell {
+  width: min(100% - 2rem, 72rem);
+  margin-inline: auto;
+}
+
+.app-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  min-height: 4.5rem;
+  border-bottom: 1px solid var(--line-subtle);
+}
+
+.app-name,
+.eyebrow {
+  margin: 0;
+}
+
+.app-name {
+  color: var(--silver);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.eyebrow {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.shell {
+  max-width: 44rem;
+  padding-block: 8rem;
+}
+
+h1 {
+  max-width: 20ch;
+  margin: 0.75rem 0 1rem;
+  color: var(--text-primary);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2.5rem, 8vw, 4.5rem);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 0.98;
+}
+
+.intro {
+  max-width: 38rem;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

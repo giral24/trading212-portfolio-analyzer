@@ -1,0 +1,45 @@
+{
+  "name": "trading212-portfolio-analyzer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A private, local-first Trading 212 portfolio analysis application.",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:generate": "dotenv -e .env -- drizzle-kit generate"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.28.0",
+  "dependencies": {
+    "decimal.js": "^10.6.0",
+    "drizzle-orm": "^0.44.7",
+    "next": "^16.1.0",
+    "postgres": "^3.4.7",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.17",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitest/coverage-v8": "^4.0.8",
+    "dotenv-cli": "^11.0.0",
+    "drizzle-kit": "^0.31.8",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.1.0",
+    "playwright": "^1.56.1",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
+  }
+}
